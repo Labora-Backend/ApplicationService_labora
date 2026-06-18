@@ -1,25 +1,41 @@
-# Python virtual environment
-venv/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Local database
-db.sqlite3
-
-# Environment variables
-.env
-
-# Git
 .git
 .gitignore
-
-# IDE files
+.dockerignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
 .idea/
 .vscode/
-
-# Logs
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
 *.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+dist/
+build/
+*.egg-info/
+node_modules/
+Dockerfile
+docker-compose.yml
+.coverage
+htmlcov/

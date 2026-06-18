@@ -1,21 +1,34 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# Environment settings
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/labora \
+    JWT_PUBLIC_KEY_PATH=/app/jwt_keys/public.pem \
+    DJANGO_SERVICE=ApplicationService
 
-# Set work directory
 WORKDIR /app
 
-# Install dependencies (cached layer for speed)
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy project code
-COPY . .
+RUN useradd -m -u 10001 appuser
 
-# Expose application port
+COPY labora_shared /opt/labora/labora_shared
+
+COPY ApplicationService_labora/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY ApplicationService_labora/ /app/
+
+RUN chmod +x /app/entrypoint.sh && \
+    mkdir -p /app/jwt_keys && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 8000
 
-# Run Django using Gunicorn (WSGI)
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "ApplicationService.wsgi:application"]
+ENTRYPOINT ["/app/entrypoint.sh"]
