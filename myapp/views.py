@@ -12,7 +12,7 @@ from .serializers import ApplicationSerializer, InternalApplicationListSerialize
 from .permissions.internal_service import IsInternalService
 import requests
 import logging
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from labora_shared.notification_client import (
     send_notification
 )
@@ -27,49 +27,49 @@ class ApplicationCreateView(generics.CreateAPIView):
     authentication_classes = [CustomJWTAuthentication]
     permission_classes = [IsFreelancer]
 
-def perform_create(self, serializer):
+    def perform_create(self, serializer):
 
-    job_id = serializer.validated_data["job_id"]
+        job_id = serializer.validated_data["job_id"]
 
-    try:
-        response = requests.get(
-            f"{settings.JOB_SERVICE_URL}/api/internal/jobs/{job_id}/",
-            headers={
-                "X-Service-Key": settings.SERVICE_API_KEY
-            },
-            timeout=5
+        try:
+            response = requests.get(
+                f"{settings.JOB_SERVICE_URL}/api/internal/jobs/{job_id}/",
+                headers={
+                    "X-Service-Key": settings.SERVICE_API_KEY
+                },
+                timeout=5
+            )
+
+            response.raise_for_status()
+
+            job_data = response.json()
+
+        except requests.RequestException:
+            raise ValidationError(
+                {"job_id": "Unable to verify job."}
+            )
+
+        if job_data.get("status") != "open":
+            raise ValidationError(
+                {"job_id": "This job is not accepting applications."}
+            )
+
+        application = serializer.save(
+            freelancer_id=self.request.user.id,
+            client_id=job_data["client_id"]
         )
 
-        response.raise_for_status()
-
-        job_data = response.json()
-
-    except requests.RequestException:
-        raise ValidationError(
-            {"job_id": "Unable to verify job."}
+        send_notification(
+            user_id=application.client_id,
+            notification_type="application_received",
+            title="New Application",
+            message="A freelancer applied to your job.",
+            payload={
+                "job_id": application.job_id,
+                "application_id": application.id,
+                "freelancer_id": application.freelancer_id
+            }
         )
-
-    if job_data.get("status") != "open":
-        raise ValidationError(
-            {"job_id": "This job is not accepting applications."}
-        )
-
-    application = serializer.save(
-        freelancer_id=self.request.user.id,
-        client_id=job_data["client_id"]
-    )
-
-    send_notification(
-        user_id=application.client_id,
-        notification_type="application_received",
-        title="New Application",
-        message="A freelancer applied to your job.",
-        payload={
-            "job_id": application.job_id,
-            "application_id": application.id,
-            "freelancer_id": application.freelancer_id
-        }
-    )
 
 # ==================================================
 # FREELANCER VIEW OWN APPLICATIONS
@@ -96,11 +96,35 @@ class JobApplicationsView(generics.ListAPIView):
     permission_classes = [IsClient]
 
     def get_queryset(self):
+
+        job_id = self.kwargs["job_id"]
+
+        try:
+            response = requests.get(
+                f"{settings.JOB_SERVICE_URL}/api/internal/jobs/{job_id}/",
+                headers={
+                    "X-Service-Key": settings.SERVICE_API_KEY
+                },
+                timeout=5
+            )
+
+            response.raise_for_status()
+
+            job_data = response.json()
+
+        except requests.RequestException:
+            raise PermissionDenied(
+                "Unable to verify job ownership."
+            )
+
+        if job_data["client_id"] != self.request.user.id:
+            raise PermissionDenied(
+                "You do not own this job."
+            )
+
         return Application.objects.filter(
-            job_id=self.kwargs["job_id"]
+            job_id=job_id
         ).order_by("-created_at")
-
-
 # ==================================================
 # CLIENT ACCEPT APPLICATION
 # ==================================================
@@ -165,7 +189,7 @@ class AcceptApplicationView(APIView):
 
                 chatroom_response.raise_for_status()
 
-              
+
 
                 application.status = "accepted"
                 application.save(

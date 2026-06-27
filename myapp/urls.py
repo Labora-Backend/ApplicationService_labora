@@ -34,7 +34,7 @@ urlpatterns = [
 
     # client
     path(
-        "jobs/<int:job_id>/applications/",
+        "applications/jobs/<int:job_id>/applications/",
         JobApplicationsView.as_view(),
         name="job-applications"
     ),
