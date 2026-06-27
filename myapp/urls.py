@@ -7,7 +7,8 @@ from .views import (
     JobApplicationsView,
     AcceptApplicationView,
     RejectApplicationView,
-    WithdrawApplicationView, InternalJobFreelancerView,
+    WithdrawApplicationView, InternalJobFreelancerView, InternalApplicationListView, InternalApplicationStatsView,
+    InternalApplicationDetailView,
 )
 
 urlpatterns = [
@@ -53,5 +54,23 @@ path(
     "internal/jobs/<int:job_id>/freelancer/",
     InternalJobFreelancerView.as_view(),
     name="internal-job-freelancer"
-)
+),
+    path(
+        "internal/applications/",
+        InternalApplicationListView.as_view()
+    ),
+
+    path(
+        "internal/applications/stats/",
+        InternalApplicationStatsView.as_view()
+    ),
+
+    path(
+        "internal/applications/<int:application_id>/",
+        InternalApplicationDetailView.as_view()
+    ),
+
+
+
+
 ]

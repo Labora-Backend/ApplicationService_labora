@@ -171,7 +171,7 @@ def role_required(allowed_roles):
 # ==========================================
 
 def admin_only(view_func):
-    return role_required(["admin"])(view_func)
+    return role_required(["labora_admin"])(view_func)
 
 
 def client_only(view_func):
@@ -184,11 +184,11 @@ def freelancer_only(view_func):
 
 def client_or_admin(view_func):
     return role_required(
-        ["client", "admin"]
+        ["client", "labora_admin"]
     )(view_func)
 
 
 def freelancer_or_admin(view_func):
     return role_required(
-        ["freelancer", "admin"]
+        ["freelancer", "labora_admin"]
     )(view_func)

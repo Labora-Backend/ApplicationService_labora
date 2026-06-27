@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from .models import Application,ProposalMessage
 
-class ApplicationSerializer(
-    serializers.ModelSerializer
-):
+from rest_framework import serializers
+from .models import Application
+
+
+class ApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
@@ -23,10 +25,11 @@ class ApplicationSerializer(
 
         read_only_fields = [
             "id",
+            "client_id",
+            "freelancer_id",
             "status",
             "created_at",
             "updated_at",
-            "freelancer_id",
         ]
 
 class ProposalMessageSerializer(
@@ -48,4 +51,34 @@ class ProposalMessageSerializer(
             "id",
             "sender_id",
             "created_at",
+        ]
+from rest_framework import serializers
+
+from .models import Application
+
+
+class InternalApplicationListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+
+        model = Application
+
+        fields = [
+
+            "id",
+
+            "job_id",
+
+            "client_id",
+
+            "freelancer_id",
+
+            "proposed_amount",
+
+            "delivery_time_days",
+
+            "status",
+
+            "created_at",
+
         ]

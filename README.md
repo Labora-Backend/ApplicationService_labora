@@ -105,6 +105,22 @@ docker run -p 8000:8000 application-service
 
 ---
 
+### Notifications
+This service sends notifications for application events using the centralized Notification Service via labora_shared.notification_client.send_notification().
+
+Emitted notification events:
+- application_received: title="New Application", message="A freelancer applied to your job."
+- proposal_accepted: title="Proposal Accepted", message="Your proposal has been accepted."
+- proposal_rejected: title="Proposal Rejected", message="Your proposal was rejected."
+
+Environment variables required:
+- NOTIFICATION_SERVICE_URL
+- SERVICE_API_KEY
+
+Notification failures are logged and do not interrupt the primary application flow.
+
+---
+
 ## 📌 Future Improvements
 
 * Add PostgreSQL support
