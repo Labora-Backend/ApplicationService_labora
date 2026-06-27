@@ -1,134 +1,93 @@
-# 🚀 Application Service (Labora Backend)
+# Application Service
 
-A Django-based backend service built as part of a microservice architecture. This service handles core application logic and integrates with authentication using JWT.
+Application Service manages freelancer proposals for jobs and coordinates the acceptance workflow between Job Service, Message Service, and Notification Service.
 
----
+## Responsibilities
 
-## 📌 Features
+- Let freelancers apply to open jobs.
+- Let freelancers list and withdraw their own applications.
+- Let job-owning clients view, accept, or reject applications.
+- Update job status when an application is accepted.
+- Create a chat room for the accepted client/freelancer pair.
+- Provide internal application data and statistics to Admin Service and Job Service.
 
-* 🔐 JWT Authentication (Public/Private key based)
-* 🧩 Modular Django apps
-* 🐳 Docker support
-* 🔒 Secure environment configuration using `.env`
-* ⚙️ Scalable microservice-ready structure
+## Features
 
----
+- Job validation against Job Service before application creation.
+- One application per freelancer per job through a model uniqueness constraint.
+- Atomic acceptance workflow: lock application, update job to `in_progress`, create chat room, accept one proposal, and reject remaining pending proposals.
+- Notification events for application received, proposal accepted, and proposal rejected.
 
-## 🏗️ Tech Stack
+## API Endpoints
 
-* **Backend:** Django, Django REST Framework
-* **Authentication:** JWT (RS256)
-* **Database:** SQLite (development)
-* **Containerization:** Docker
+Base path: `/api/`
 
----
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `POST` | `applications/create/` | Freelancer JWT | Apply to an open job. |
+| `GET` | `applications/my/` | Freelancer JWT | List the authenticated freelancer's applications. |
+| `PATCH` | `applications/<application_id>/withdraw/` | Freelancer JWT | Withdraw a pending application owned by the freelancer. |
+| `GET` | `applications/jobs/<job_id>/applications/` | Owning client JWT | List applications for a job after verifying ownership with Job Service. |
+| `PATCH` | `applications/<application_id>/accept/` | Owning client JWT | Accept a pending application and start the job/chat workflow. |
+| `PATCH` | `applications/<application_id>/reject/` | Owning client JWT | Reject a pending application. |
 
-## 📁 Project Structure
+## Internal Service Endpoints
 
-```
-Application Service/
-│
-├── auth_service/        # Authentication service
-├── myapp/               # Core application logic
-├── jwt_keys/            # JWT keys (ignored in git)
-├── manage.py
-├── requirements.txt
-├── Dockerfile
-├── .gitignore
-└── README.md
-```
+Internal endpoints use `X-Service-Key: <SERVICE_API_KEY>`.
 
----
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `internal/jobs/<job_id>/freelancer/` | Return the freelancer id from the first application found for a job. |
+| `GET` | `internal/applications/` | Return paginated application summaries. |
+| `GET` | `internal/applications/stats/` | Return application counts by status. |
+| `GET` | `internal/applications/<application_id>/` | Return one application summary. |
 
-## ⚙️ Setup Instructions
+## Authentication
 
-### 1️⃣ Clone the repository
+User APIs use `myapp.authentication.CustomJWTAuthentication` and role permissions for clients/freelancers. Internal endpoints use `X-Service-Key`.
+
+## Environment Variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Django secret key. |
+| `DEBUG` | Enables debug mode when set to `1`, `true`, or `yes`. |
+| `ALLOWED_HOSTS` | Comma-separated allowed hosts. Defaults to `*`. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | MySQL database configuration. |
+| `JWT_PUBLIC_KEY_PATH` | Public key used to verify Auth Service JWTs. |
+| `SERVICE_API_KEY` | Shared key for internal calls. |
+| `JOB_SERVICE_URL` | Used to verify jobs and update job status. |
+| `MESSAGE_SERVICE_URL` | Used to create chat rooms after acceptance. |
+| `NOTIFICATION_SERVICE_URL` | Used by the shared notification client. |
+| `*_SERVICE_URL` | Additional service URL settings loaded by settings. |
+
+## Setup
 
 ```bash
-git clone https://github.com/<your-username>/ApplicationService_labora.git
 cd ApplicationService_labora
-```
-
-### 2️⃣ Create virtual environment
-
-```bash
-python -m venv venv
-venv\Scripts\activate   # Windows
-```
-
-### 3️⃣ Install dependencies
-
-```bash
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 4️⃣ Setup environment variables
-
-Create a `.env` file:
-
-```
-SECRET_KEY=your_secret_key
-DEBUG=True
-```
-
----
-
-### 5️⃣ Run migrations
-
-```bash
 python manage.py migrate
+python manage.py runserver 8007
 ```
 
----
+## Service Architecture
 
-### 6️⃣ Start server
+- Django project: `ApplicationService`
+- App: `myapp`
+- Authentication: `myapp.authentication.CustomJWTAuthentication`
+- Role permissions: `myapp.role_permissions`
+- Internal permission: `myapp.permissions.internal_service.IsInternalService`
+- Outbound dependencies: Job Service, Message Service, and Notification Service
 
-```bash
-python manage.py runserver
-```
+## Database Models
 
----
+- `Application`: stores `job_id`, `client_id`, `freelancer_id`, cover letter, proposed amount, delivery time, status, and timestamps.
+- `ProposalMessage`: stores messages linked to an application. No API currently exposes proposal-message CRUD.
 
-## 🐳 Run with Docker
+## Notification/Event Flow
 
-```bash
-docker build -t application-service .
-docker run -p 8000:8000 application-service
-```
-
----
-
-## 🔐 Security Notes
-
-* `.env`, `venv/`, `db.sqlite3`, and `jwt_keys/` are ignored using `.gitignore`
-* Never commit private keys (`.pem`) or secrets
-
----
-
-### Notifications
-This service sends notifications for application events using the centralized Notification Service via labora_shared.notification_client.send_notification().
-
-Emitted notification events:
-- application_received: title="New Application", message="A freelancer applied to your job."
-- proposal_accepted: title="Proposal Accepted", message="Your proposal has been accepted."
-- proposal_rejected: title="Proposal Rejected", message="Your proposal was rejected."
-
-Environment variables required:
-- NOTIFICATION_SERVICE_URL
-- SERVICE_API_KEY
-
-Notification failures are logged and do not interrupt the primary application flow.
-
----
-
-## 📌 Future Improvements
-
-* Add PostgreSQL support
-* API Gateway integration
-* Service-to-service communication
-* Deployment (AWS / Docker Compose)
-
----
-
-
-
+- Creating an application sends `application_received` to the client.
+- Accepting an application sends `proposal_accepted` to the freelancer after job/chat workflow succeeds.
+- Rejecting an application sends `proposal_rejected` to the freelancer.
